@@ -50,7 +50,7 @@
   :type '(repeat string)
   :group 'mpv)
 
-(defcustom mpv-start-timeout 0.5
+(defcustom mpv-start-timeout 2.5
   "Maximum time in seconds that `mpv-start' blocks while waiting for mpv."
   :type 'number
   :group 'mpv)
