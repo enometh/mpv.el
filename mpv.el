@@ -153,12 +153,18 @@ prepended to ARGS."
   (mpv-kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-" temporary-file-directory))))
-    (setq mpv--process
-          (apply #'start-process "mpv-player" nil mpv-executable
-                 "--no-terminal"
-                 (concat "--input-ipc-server=" socket)
-                 (append mpv-default-options args)))
-    (set-process-query-on-exit-flag mpv--process nil)
+    (with-current-buffer (get-buffer-create "*mpv*")
+      (erase-buffer)
+      (setq buffer-undo-list t)
+      (setq mpv--process
+	    (apply #'start-process "mpv-player" (current-buffer) mpv-executable
+		   "--quiet"
+		   (concat "--input-ipc-server=" socket)
+                   (append mpv-default-options args)))
+      (set-process-query-on-exit-flag mpv--process nil)
+      (comint-mode)
+      (set-process-filter mpv--process #'comint-output-filter)
+      (ansi-color-for-comint-mode-on))
     (set-process-sentinel
      mpv--process
      (lambda (process _event)
@@ -178,6 +184,11 @@ prepended to ARGS."
     (mpv-connect socket)
     (run-hook-with-args 'mpv-on-start-hook args)
     t))
+
+(defun mpv-switch-to-mpv-buffer ()
+  (interactive)
+  (when-let* ((buf (get-buffer "*mpv*")))
+    (switch-to-buffer buf)))
 
 (defun mpv--as-strings (command)
   "Convert COMMAND to a list of strings."
