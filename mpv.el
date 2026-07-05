@@ -112,15 +112,44 @@ The hook will be called with the arguments passed to `mpv-start'."
 (defvar mpv--queue nil)
 
 (defun mpv-live-p ()
+  "Return non-nil if connected to a running mpv."
+  (and mpv--queue (eq (process-status (tq-process mpv--queue)) 'open)))
+
+(defun mpv-started-p ()
   "Return non-nil if inferior mpv is running."
   (and mpv--process (eq (process-status mpv--process) 'run)))
 
-(defun mpv-start (&rest args)
+;;;###autoload
+(defun mpv-connect (socket &optional force)
+  "connect to an externally running mpv"
+  (when mpv--queue
+    (cond ((and (eq (process-status (tq-process mpv--queue)) 'open)
+		(not force))
+	   (error
+	    "mpv--queue active. use (tq-close mpv--queue) if this is wrong."))
+	  (t (tq-close mpv--queue))))
+  (cl-assert (or (not mpv--queue)
+		 (member (process-status (tq-process mpv--queue))
+			 '(closed failed))))
+  (setq mpv--queue (tq-create
+                    (make-network-process :name "mpv-socket"
+                                          :family 'local
+                                          :service socket)))
+  (set-process-filter
+   (tq-process mpv--queue)
+   (lambda (_proc string)
+     (mpv--tq-filter mpv--queue string))))
+
+(cl-defun mpv-start (&rest args)
   "Start an mpv process with the specified ARGS.
 
 If there already is an mpv process controlled by this Emacs instance,
 it will be killed.  Options specified in `mpv-default-options' will be
 prepended to ARGS."
+  (when (and (not (mpv-started-p))
+	     (mpv-live-p)
+	     (not (yes-or-no-p "connected to an external mpv. disconnect? ")))
+    (cl-return-from mpv-start nil))
   (mpv-kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-" temporary-file-directory))))
@@ -146,14 +175,7 @@ prepended to ARGS."
                            (error "Failed to connect to mpv"))
       (while (not (file-exists-p socket))
         (sleep-for 0.05)))
-    (setq mpv--queue (tq-create
-                      (make-network-process :name "mpv-socket"
-                                            :family 'local
-                                            :service socket)))
-    (set-process-filter
-     (tq-process mpv--queue)
-     (lambda (_proc string)
-       (mpv--tq-filter mpv--queue string)))
+    (mpv-connect socket)
     (run-hook-with-args 'mpv-on-start-hook args)
     t))
 
@@ -533,11 +555,11 @@ do so."
   (interactive)
   (when mpv--queue
     (tq-close mpv--queue))
-  (when (mpv-live-p)
+  (when (mpv-started-p)
     (kill-process mpv--process))
   (with-timeout
       (0.5 (error "Failed to kill mpv"))
-    (while (mpv-live-p)
+    (while (mpv-started-p)
       (sleep-for 0.05)))
   (setq mpv--process nil)
   (setq mpv--queue nil))

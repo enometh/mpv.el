@@ -13,6 +13,7 @@ mpv.el is available on [MELPA] and [NonGNU ELPA][]:
 To start playback, have a look at `mpv-play` (for single files) and `mpv-start`
 (for passing arbitrary arguments to `mpv`, e.g., URLs).  Among others, mpv.el provides
 
+- `mpv-connect` to connect to an externally started mpv.
 - `mpv-pause`
 - `mpv-kill`
 - `mpv-seek-forward` / `mpv-seek-backward`
