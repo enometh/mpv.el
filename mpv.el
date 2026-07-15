@@ -494,15 +494,64 @@ See `mpv-current-indicator' and `mpv-loop-indicator' respectively."
   "Return if URL is an HTTP(S) URL."
   (member (url-type (url-generic-parse-url url)) '("http" "https")))
 
+(defun mpv--frob-cmdline (&rest args)
+  "Args is a list of strings consisting of leading options of the form
+\"--a=b\", followed by non-option arguments.  Parses each option to a
+list of (a b) and returns two lists, one of the parsed options and the
+other of the remaining arguments."
+  (cl-loop for (arg . rest) on args
+	   for cmd = (or
+		      (and (string-match "^\\(--\\)\\([^=]+\\)=\\(.*\\)$" arg)
+			   (list (match-string 2 arg)
+				 (match-string 3 arg)))
+		      (and (string-match "^\\(--no-\\)\\(.*\\)$" arg)
+			   (list (match-string 2 arg) "no"))
+		      (and (string-match "^\\(--\\)\\(.*\\)$" arg)
+			   (list (match-string 2 arg) "yes")))
+	   when cmd collect it into cmds
+	   else collect arg into paths
+	   finally (cl-return (list cmds paths))))
+
 ;;;###autoload
-(defun mpv-play (path)
+(defun mpv-load-or-start (&rest args)
+  "Start an mpv process playing ARGS, or if an mpv process is
+already live, use loadfile to change the currently playing file to it.
+If additional paths are present, add them to the playlist."
+  (if (mpv-live-p)
+      (cl-destructuring-bind (cmds paths)
+	  (apply #'mpv--frob-cmdline args)
+	(mpv-run-command "loadfile" (car paths) "replace")
+	;; append remaining paths to playlist
+	(dolist (path (cdr paths))
+	  (mpv-run-command "loadfile" path))
+	(cl-loop for cmd in cmds
+		 do (apply #'mpv-run-command (cons "set" cmd))))
+    (apply #'mpv-start args)))
+
+;;;###autoload
+(defun mpv-play (&rest path)
   "Start an mpv process playing the file at PATH.
+
+You can also try to use this function as a drop-in replacement for
+mpv-start to reuse an already connected mpv. This calls the loadfile
+command on the file and then tries to set any commandline options.
 
 You can use this with `org-add-link-type' or `org-file-apps'.
 See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
   (interactive "fFile: ")
-  (mpv-start (expand-file-name path)))
+  ;; handle `org-link-open' braindamage: it calls (mpv-play path nil)
+  ;; and tries to catch a `wrong-number-of-arguments' error before
+  ;; calling (mpv-play path).
+  (if (and (cl-endp (cddr path)) (null (cadr path)))
+      (setq path (list (car path))))
+  (apply #'mpv-load-or-start
+	 (mapcar (lambda (s)
+		   (if (or (string-match "^-" s) (mpv--url-p s))
+		       s
+		     (cl-assert (file-exists-p s))
+		     (expand-file-name s)))
+		 path)))
 
 ;;;###autoload
 (defun mpv-play-url (url)
@@ -513,7 +562,7 @@ See `mpv-start' if you need to pass further arguments and
   (interactive "sURL: ")
   (unless (mpv--url-p url)
     (user-error "Invalid argument: `%s' (must be a valid URL)" url))
-  (mpv-start url))
+  (mpv-load-or-start url))
 
 ;;;###autoload
 (defun mpv--playlist-append (thing &rest args)

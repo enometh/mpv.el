@@ -14,6 +14,9 @@ To start playback, have a look at `mpv-play` (for single files) and `mpv-start`
 (for passing arbitrary arguments to `mpv`, e.g., URLs).  Among others, mpv.el provides
 
 - `mpv-connect` to connect to an externally started mpv.
+- `mpv-play` calls `loadfile` if an mpv process is running, or calls `mpv-start`
+- `mpv-start` starts a new mpv process after killing off any existing process
+
 - `mpv-pause`
 - `mpv-kill`
 - `mpv-seek-forward` / `mpv-seek-backward`
