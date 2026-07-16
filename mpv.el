@@ -569,12 +569,13 @@ See `mpv-start' if you need to pass further arguments and
   "Append THING to the current mpv playlist.
 
 If ARGS are provided, they are passed as per-file options to mpv."
-  (mpv-run-command "loadfile" thing "append"
+  (apply #'mpv-run-command "loadfile" thing "append"
+	 (and args (list
                    (string-join
                     (mapcar (lambda (arg)
                               (string-trim-left arg "--"))
                             args)
-                    ","))
+                    ","))))
   (when-let* ((count (mpv-get-property "playlist-count"))
               (index (1- count))
               (filename (mpv-get-property (format "playlist/%d/filename" index))))
@@ -585,6 +586,7 @@ If ARGS are provided, they are passed as per-file options to mpv."
 
 If ARGS are provided, they are passed as per-file options to mpv."
   (interactive "fFile: ")
+  (cl-assert (file-exists-p path))
   (apply 'mpv--playlist-append (expand-file-name path) args))
 
 (defun mpv-playlist-append-url (url &rest args)
