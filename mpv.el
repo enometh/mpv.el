@@ -791,5 +791,110 @@ the echo area."
       (if (called-interactively-p 'interactive)
           (message "mpv %s" version)))))
 
+
+;;; ----------------------------------------------------------------------
+;;;
+;;;
+;;;
+
+(defun mpv-ensure-playlist-playing ()
+  (interactive)
+  (if (equal (mpv-get-property "playlist-playing-pos") -1)
+      (mpv-run-command "playlist-play-index" "0")))
+
+(defun mpv-enqueue-last (&rest path)
+  (interactive)
+  (unless (mpv-live-p)
+    (mpv-start))
+  (cl-loop for p in path
+	   do (funcall (if (mpv--url-p p)
+			   #'mpv-playlist-append-url
+			 #'mpv-playlist-append)
+		       p))
+  (mpv-ensure-playlist-playing))
+
+;; from empv.el
+(defun mpv-get-media-at-point ()
+  (or (when (derived-mode-p 'dired-mode)
+	(dired-get-marked-files))
+      (when (derived-mode-p 'org-mode)
+	(ignore-errors (org-element-property :path (org-element-context))))
+      (ignore-errors (shr-url-at-point nil))
+      (thing-at-point 'url)
+      (thing-at-point 'existing-filename)
+      (thing-at-point 'filename)))
+
+;; media is plural
+(defun mpv-play-media-at-point (&optional enqueue)
+  (interactive "P")
+  (when-let* ((thing (mpv-get-media-at-point)))
+    (when (yes-or-no-p (format "%s %s" (if enqueue "enqueue" "open") thing))
+      (apply (if enqueue #'mpv-enqueue-last #'mpv-play)
+	     (if (consp thing) thing (list thing))))))
+
+(with-eval-after-load 'transient
+  (eval
+   '(progn
+      (defun mpv-transient-show-interface ()
+	(interactive)
+	(cond (transient--stack
+	       (message "resuming transient")
+	       (transient-resume))
+	      (t (message "starting mpv-transient")
+		 (mpv-transient))))
+      (transient-define-prefix mpv-transient ()
+	"MPV Transient."
+	:transient-suffix 'transient--do-stay
+	[["Play"
+	  ("o" mpv-play :description "play file")
+	  ("O" mpv-play-url :description "play url")
+	  ("e" mpv-playlist-append :description "enqueue file")
+	  ("E" mpv-playlist-append-url :description "enqueue url")
+	  ("m" mpv-play-media-at-point :description "play media at point")
+	  ("M" (lambda () (interactive) (mpv-play-media-at-point 'enqueue)) :description "enqueue media at point")
+	  ("q" (lambda () (interactive) (mpv-quit nil)) :description "exit" :transient nil)
+	  ("Q" (lambda () (interactive) (mpv-quit t)) :description "save and exit" :transient nil)
+	  ;;("S" (lambda () (interactive) (unless (mpv-live-p) (mpv-start))) :description "maybe Start mpv")
+	  ("z" transient-suspend :description "suspend")
+	  ]
+	 ["Playback"
+	  ("[" (lambda () (interactive) (mpv-speed-decrease 1)) :description "speed down" :transient t)
+	  ("]" (lambda () (interactive) (mpv-speed-increase 1)) :description "speed up" :transient t)
+	  ("0" (lambda () (interactive) (mpv-volume-increase 1)) :description "volume up" :transient t)
+	  ("9" (lambda () (interactive) (mpv-volume-decrease 1)) :description "volume down" :transient t)
+	  ("<right>" (lambda () (interactive) (mpv-seek-forward 5)) :description "forward")
+	  ("<left>"  (lambda () (interactive) (mpv-seek-backward 5)):description "backward")
+	  ("(" mpv-chapter-prev :description "chapter prev")
+	  (")" mpv-chapter-next :description "chapter next")
+	  ("x" mpv-jump-to-chapter :description "chapter select")]
+	 [
+	  "Playlist"
+	  ("n" mpv-playlist-next :description "next")
+	  ("N" mpv-playlist-prev :description "prev")
+	  ("D" mpv-remove-playlist-entry :description "remove")
+	  ("p" mpv-jump-to-playlist-entry :description "select")
+	  ("!" (lambda () (interactive) (if (equal (mpv-get-property "playlist-playing-pos") -1) (mpv-run-command "playlist-play-index" "0"))) :description "start playing")
+	  ]
+	 [
+	  "Toggle"
+	  ("t" mpv-pause :description "play")
+
+	  ("P" (lambda () (interactive) (mpv-cycle-property "mute")) :description "sound")
+	  ("w" (lambda () (interactive) (mpv-cycle-property "force-window")) :description "window")
+	  ("_" mpv-toggle-video :description "video")
+	  ("8" mpv-toggle-loop :description "current loop")
+	  ("L" (lambda () (interactive)  (mpv-toggle-loop t)) :description "playlist")
+	  "Utility"
+	  ("c" (lambda () (interactive) (let ((p (mpv-get-property "path"))) (cond (p (kill-new p) (message "copied path %s" p)) (t (message "no path to copy")))))
+	   :description "copy path")
+	  ;; ("/" transient-quit-one :description "quit one")
+	  ;; ("." transient-suspend :description "suspend")
+	  ]]
+	(interactive)
+	(transient-setup 'mpv-transient)
+	(unless (mpv-live-p) (mpv-start))
+	(mpv-set-property "force-window" "no")
+	(mpv-set-property "idle" "yes")))))
+
 (provide 'mpv)
 ;;; mpv.el ends here
