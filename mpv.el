@@ -198,7 +198,7 @@ prepended to ARGS."
               arg))
           command))
 
-(defun mpv--enqueue (command fn &optional delay-command)
+(cl-defun mpv--enqueue (command fn &optional delay-command &key async)
   "Add COMMAND to the transaction queue.
 
 FN will be called with the corresponding answer.
@@ -212,21 +212,31 @@ below."
   (when (mpv-live-p)
     (tq-enqueue
      mpv--queue
-     (concat (json-encode `((command . ,(mpv--as-strings command)))) "\n")
+     (concat (json-encode `((command . ,(mpv--as-strings command))
+				     ,@(and async '((async . t))))
+			    )
+	     "\n")
      "" nil fn delay-command)
     t))
 
-(defun mpv-run-command (command &rest arguments)
+(cl-defun mpv-run-command (command &rest arguments &aux async)
   "Send a COMMAND to mpv, passing the remaining ARGUMENTS.
 Block while waiting for the response."
+  (when (equal command "async")
+    (setq async t command (car arguments) arguments (cdr arguments)))
   (when (mpv-live-p)
     (let* ((response
             (cl-block mpv-run-command-wait-for-response
               (mpv--enqueue
                (cons command arguments)
-               (lambda (response)
-                 (cl-return-from mpv-run-command-wait-for-response
-                   response)))
+	       (if async
+		   #'ignore
+		 (lambda (response)
+		   (cl-return-from mpv-run-command-wait-for-response
+		     response)))
+	       nil
+	       :async async)
+	      (if async (cl-return-from mpv-run-command 'async))
               (while (mpv-live-p)
                 (sleep-for 0.05))))
            (status (alist-get 'error response))
