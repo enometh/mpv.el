@@ -902,9 +902,11 @@ the echo area."
 	  ]]
 	(interactive)
 	(transient-setup 'mpv-transient)
-	(unless (mpv-live-p) (mpv-start))
-	(mpv-set-property "force-window" "no")
-	(mpv-set-property "idle" "yes")))))
+	(unless (mpv-live-p)
+	  (mpv-start)
+	  (mpv-set-property "force-window" "no")
+	  (mpv-set-property "idle" "yes"))
+	))))
 
 (provide 'mpv)
 ;;; mpv.el ends here
