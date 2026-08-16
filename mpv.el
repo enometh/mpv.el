@@ -269,6 +269,9 @@ passes unsolicited event messages to `mpv-on-event-hook'."
   (goto-char (point-min))
   (skip-chars-forward "^{")
   (let ((answer (ignore-errors (json-read))))
+    ;; skip async message handlers
+    (while (eql (tq-queue-head-fn tq) #'ignore)
+      (tq-queue-pop tq))
     (when answer
       (delete-region (point-min) (point))
       ;; event messages have form {"event": ...}
@@ -277,7 +280,8 @@ passes unsolicited event messages to `mpv-on-event-hook'."
        ((assoc 'event answer)
         (run-hook-with-args 'mpv-on-event-hook answer))
        ((not (tq-queue-empty tq))
-        (unwind-protect
+	(cl-assert (not (eql (tq-queue-head-fn tq) #'ignore)))
+	(unwind-protect
             (funcall (tq-queue-head-fn tq) answer)
           (tq-queue-pop tq))))
       ;; Recurse to check for further JSON messages.
