@@ -862,8 +862,8 @@ the echo area."
 	[["Play"
 	  ("o" mpv-play :description "play file")
 	  ("O" mpv-play-url :description "play url")
-	  ("e" mpv-playlist-append :description "enqueue file")
-	  ("E" mpv-playlist-append-url :description "enqueue url")
+	  ("E" mpv-playlist-append :description "enqueue file")
+	  ("e" mpv-playlist-append-url :description "enqueue url")
 	  ("m" mpv-play-media-at-point :description "play media at point")
 	  ("M" (lambda () (interactive) (mpv-play-media-at-point 'enqueue)) :description "enqueue media at point")
 	  ("q" (lambda () (interactive) (mpv-quit nil)) :description "exit" :transient nil)
@@ -888,6 +888,7 @@ the echo area."
 	  ("D" mpv-remove-playlist-entry :description "remove")
 	  ("p" mpv-jump-to-playlist-entry :description "select")
 	  ("!" (lambda () (interactive) (if (equal (mpv-get-property "playlist-playing-pos") -1) (mpv-run-command "playlist-play-index" "0"))) :description "start playing")
+	  ("b" mpv-switch-to-mpv-buffer :description "*mpv*")
 	  ]
 	 [
 	  "Toggle"
