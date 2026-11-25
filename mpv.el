@@ -889,6 +889,7 @@ the echo area."
 	  ("p" mpv-jump-to-playlist-entry :description "select")
 	  ("!" (lambda () (interactive) (if (equal (mpv-get-property "playlist-playing-pos") -1) (mpv-run-command "playlist-play-index" "0"))) :description "start playing")
 	  ("b" mpv-switch-to-mpv-buffer :description "*mpv*")
+	  ("W" (lambda () (interactive) (mpv-run-command "write-watch-later-config")) :description "save pos")
 	  ]
 	 [
 	  "Toggle"
