@@ -526,6 +526,9 @@ other of the remaining arguments."
 	   else collect arg into paths
 	   finally (cl-return (list cmds paths))))
 
+(defvar mpv-play-always-enqueue t
+  "If non-NIL advise mpv-play to call mpv-enqueue-last instead.")
+
 ;;;###autoload
 (defun mpv-load-or-start (&rest args)
   "Start an mpv process playing ARGS, or if an mpv process is
@@ -534,7 +537,12 @@ If additional paths are present, add them to the playlist."
   (if (mpv-live-p)
       (cl-destructuring-bind (cmds paths)
 	  (apply #'mpv--frob-cmdline args)
-	(mpv-run-command "loadfile" (car paths) "replace")
+	(apply #'mpv-run-command "loadfile" (car paths)
+	       (append (list (if mpv-play-always-enqueue
+				 "insert-at-play"
+			       "replace"))
+		       (if  mpv-play-always-enqueue
+			   (list "1"))))
 	;; append remaining paths to playlist
 	(dolist (path (cdr paths))
 	  (mpv-run-command "loadfile" path "append"))
@@ -900,6 +908,8 @@ the echo area."
 	  ("_" mpv-toggle-video :description "video")
 	  ("8" mpv-toggle-loop :description "current loop")
 	  ("L" (lambda () (interactive)  (mpv-toggle-loop t)) :description "playlist")
+	  ("X" (lambda () (interactive) (setq mpv-play-always-enqueue (not mpv-play-always-enqueue)))
+	   :description (lambda () (concat "enqueue " (if mpv-play-always-enqueue "on" "off"))))
 	  "Utility"
 	  ("c" (lambda () (interactive) (let ((p (mpv-get-property "path"))) (cond (p (kill-new p) (message "copied path %s" p)) (t (message "no path to copy")))))
 	   :description "copy path")
