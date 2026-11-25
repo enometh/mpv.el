@@ -537,7 +537,7 @@ If additional paths are present, add them to the playlist."
 	(mpv-run-command "loadfile" (car paths) "replace")
 	;; append remaining paths to playlist
 	(dolist (path (cdr paths))
-	  (mpv-run-command "loadfile" path))
+	  (mpv-run-command "loadfile" path "append"))
 	(cl-loop for cmd in cmds
 		 do (apply #'mpv-run-command (cons "set" cmd))))
     (apply #'mpv-start args)))
